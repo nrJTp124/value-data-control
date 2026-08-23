@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>แผนงานควบคุมมาตรฐานข้อมูลเพื่อจัดทำบัญชีราคาประเมินทรัพย์สิน</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+
+<style>
+:root{
+  --navy:#062b5b; --navy2:#0b4a88; --gold:#e5b940; --bg:#eef3f8; --card:#fff;
+  --ink:#15325b; --muted:#6f7f94; --line:#d9e2ec; --green:#1aa35f; --amber:#f4b515;
+  --red:#eb4343; --blue:#0f6ed7; --cyan:#0aa1b8; --purple:#7046bd;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Tahoma,"Noto Sans Thai",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{
+  background:linear-gradient(110deg,#041d43,#0a427c);
+  color:#fff;border-bottom:3px solid var(--gold);padding:16px 24px;
+}
+.header-inner{max-width:1600px;margin:auto;display:flex;justify-content:space-between;gap:24px;align-items:center}
+.brand{display:flex;align-items:center;min-width:0}
+.title h1{margin:0 0 5px;font-size:28px;line-height:1.25}
+.title p{margin:0;color:#d9e8f8;font-size:13px}
+.date-box{
+  border:1px solid rgba(229,185,64,.75);border-radius:14px;padding:10px 16px;min-width:220px;
+  background:rgba(0,0,0,.12);text-align:center;flex:none
+}
+.date-box small{display:block;color:#f7dc88;font-weight:700}
+.date-box b{display:block;font-size:18px;margin-top:2px}
+.date-box span{font-size:13px;color:#dfeaf7}
+
+main{max-width:1600px;margin:auto;padding:14px}
+.filterbar{
+  background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;
+  display:grid;grid-template-columns:repeat(3,minmax(180px,1fr)) minmax(280px,1.5fr) auto auto auto;
+  gap:10px;align-items:end;box-shadow:0 4px 15px rgba(12,42,78,.05)
+}
+.field label{display:block;font-size:12px;font-weight:800;color:#3e5574;margin:0 0 5px 2px}
+select,input{
+  width:100%;border:1px solid #cfd9e5;border-radius:10px;padding:10px 12px;background:#fff;
+  color:#254365;font-size:13px;outline:none
+}
+button{
+  border:1px solid #c9d7e7;background:#fff;color:#084f9e;border-radius:10px;padding:10px 14px;
+  cursor:pointer;font-weight:800;white-space:nowrap
+}
+button.primary{background:#0b5aac;color:#fff;border-color:#0b5aac}
+button:hover{filter:brightness(.98)}
+
+.section-head{display:flex;align-items:center;gap:10px;margin:14px 2px 8px}
+.section-head h2{font-size:17px;margin:0;color:var(--navy)}
+.section-head:after{content:"";height:1px;background:#cfd9e5;flex:1}
+
+.kpi-groups{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.group-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px}
+.group-card h3{margin:0 0 10px;color:var(--navy);font-size:16px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.kpi{
+  border:1px solid var(--line);border-radius:13px;padding:15px;min-height:142px;position:relative;
+  overflow:hidden;background:linear-gradient(180deg,#fff,#fbfdff)
+}
+.kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gold)}
+.kpi-label{font-size:12px;color:#60718a;font-weight:800}
+.kpi-value{font-size:31px;font-weight:900;margin:8px 0 4px;color:var(--navy)}
+.kpi-meta{font-size:11px;color:#6f8097;line-height:1.5}
+.kpi.green .kpi-value{color:#168d57}.kpi.orange .kpi-value{color:#e99100}.kpi.cyan .kpi-value{color:#048e9d}
+
+
+.land-unit-kpis{grid-template-columns:repeat(3,1fr)}
+@media(max-width:980px){.land-unit-kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.land-unit-kpis{grid-template-columns:1fr}}
+
+.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px;box-shadow:0 4px 15px rgba(12,42,78,.035)}
+.card h3{margin:0 0 6px;font-size:17px;color:var(--navy)}
+.card-sub{color:var(--muted);font-size:11px;margin-bottom:10px}
+.map-layout{display:grid;grid-template-columns:minmax(360px,1.25fr) minmax(270px,.75fr);gap:12px;align-items:center}
+.map-box{min-height:500px;position:relative;border-radius:12px;background:#f8fbfe;overflow:hidden}
+#thaiMap{width:100%;height:500px;display:block;background:#dfe8ef}
+.map-loading{position:absolute;inset:0;display:grid;place-items:center;color:#718197;text-align:center;padding:30px}
+.status-stack{display:grid;gap:8px}
+.status-item{
+  display:grid;grid-template-columns:16px 1fr auto;gap:8px;align-items:center;border:1px solid var(--line);
+  padding:12px;border-radius:10px
+}
+.dot{width:12px;height:12px;border-radius:50%}
+.status-item b{font-size:23px}.status-item small{color:#6b7c92}
+.status-total{background:#f3f8ff;border-color:#bfd7f6}
+
+.progress-card{margin-bottom:12px}
+.progress-row{display:grid;grid-template-columns:140px 1fr 130px;gap:10px;align-items:center;margin:12px 0;font-size:12px}
+.progress-track{height:13px;background:#e8edf3;border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;border-radius:99px}
+.progress-foot{border-top:1px solid var(--line);padding-top:10px;margin-top:8px;display:flex;justify-content:space-between;font-weight:800}
+
+.urgent-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;background:#fff}
+th{background:#f4f7fb;color:#2c4768;padding:9px;border:1px solid #e0e6ee;white-space:nowrap;text-align:center}
+td{padding:9px;border:1px solid #e6ebf1;text-align:right;white-space:nowrap}
+td.left{text-align:left}
+tbody tr:hover td{background:#f8fbff}
+.pill{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border-radius:999px;font-weight:800;font-size:11px}
+.pill.green{background:#e9f8f1;color:#148853}.pill.amber{background:#fff6da;color:#a97700}.pill.red{background:#fdeaea;color:#c52f2f}
+.urgent-table{max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+
+.detail-card{margin-top:12px}
+.detail-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.detail-wrap{overflow:auto;max-height:600px;border:1px solid var(--line);border-radius:10px}
+.detail-wrap th{position:sticky;top:0;z-index:2;background:#eef4fb;color:#183f6f}
+.pagination{display:flex;justify-content:center;gap:5px;margin-top:10px;flex-wrap:wrap}
+.page-btn{min-width:36px;padding:7px 9px}
+.page-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.update-footer{
+  margin-top:12px;background:#052b5b;color:#fff;padding:10px 18px;display:flex;justify-content:flex-end;
+  align-items:center;gap:8px;font-size:12px
+}
+.live-dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px rgba(244,181,21,.16)}
+.update-footer.ok .live-dot{background:var(--green)}
+.update-footer.error .live-dot{background:var(--red)}
+
+
+.map-head-row{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap}
+.map-head-row .map-title-wrap{min-width:240px}
+.map-head-row h3{margin:0 0 5px}
+.status-inline{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-left:auto}
+.status-chip{
+  display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:999px;
+  padding:7px 11px;font-size:11px;white-space:nowrap;box-shadow:0 2px 8px rgba(12,42,78,.04)
+}
+.status-chip strong{font-size:14px}
+.eval-panel{display:grid;gap:10px;align-self:stretch}
+.eval-selected{
+  border:1px solid #cfe0f2;background:linear-gradient(180deg,#f7fbff,#eef6ff);
+  border-radius:13px;padding:13px
+}
+.eval-selected small{display:block;color:var(--muted);font-size:11px;margin-bottom:3px}
+.eval-selected b{font-size:19px;color:var(--navy)}
+.eval-card{border:1px solid var(--line);border-radius:13px;padding:15px;background:#fff}
+.eval-card .eval-label{font-size:12px;font-weight:800;color:#526981}
+.eval-card .eval-value{font-size:31px;font-weight:900;color:var(--navy);margin:7px 0 8px}
+.eval-bar{height:10px;background:#e8eef5;border-radius:999px;overflow:hidden}
+.eval-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#0f6ed7,#16a36a)}
+.eval-card .eval-note{font-size:10px;color:var(--muted);margin-top:7px;line-height:1.45}
+.eval-empty{border:1px dashed #cbd7e4;border-radius:12px;padding:18px;text-align:center;color:var(--muted);font-size:12px}
+@media(max-width:760px){
+  .status-inline{justify-content:flex-start;margin-left:0}
+}
+
+.leaflet-container{font-family:Tahoma,"Noto Sans Thai",system-ui,sans-serif;border-radius:12px}
+.leaflet-control-attribution{font-size:9px}
+.map-note{font-size:10px;color:var(--muted);margin-top:6px}
+
+.tooltip{
+  position:fixed;display:none;z-index:9999;background:#0b2f5b;color:#fff;padding:9px 11px;border-radius:8px;
+  font-size:11px;line-height:1.5;pointer-events:none;box-shadow:0 5px 18px rgba(0,0,0,.2)
+}
+.tooltip b{color:#f2d16d;font-size:13px}
+
+
+.progress-layout{display:grid;grid-template-columns:190px 1fr;gap:18px;align-items:center;margin-top:8px}
+.progress-donut{
+  --done:0deg;
+  width:170px;height:170px;border-radius:50%;
+  background:conic-gradient(var(--green) 0deg var(--done),#e8edf3 var(--done) 360deg);
+  display:grid;place-items:center;position:relative;margin:auto
+}
+.progress-donut:after{content:"";position:absolute;width:118px;height:118px;border-radius:50%;background:#fff}
+.progress-donut-center{position:relative;z-index:1;text-align:center}
+.progress-donut-center b{display:block;font-size:27px;color:var(--navy);line-height:1.15}
+.progress-donut-center span{font-size:11px;color:var(--muted)}
+.progress-legend{display:grid;gap:10px}
+.progress-legend .progress-row{margin:0}
+@media(max-width:760px){
+  .progress-layout{grid-template-columns:1fr}
+}
+
+@media(max-width:1200px){
+  .filterbar{grid-template-columns:repeat(3,1fr)}
+  .kpi-groups,.dashboard-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  header{padding:14px}.header-inner{align-items:flex-start}.date-box{min-width:170px}  .title h1{font-size:20px}.filterbar{grid-template-columns:1fr 1fr}.kpis{grid-template-columns:1fr}
+  .map-layout{grid-template-columns:1fr}.map-box,#thaiMap{height:430px;min-height:430px}
+  .progress-row{grid-template-columns:105px 1fr}.progress-row .count{grid-column:1/-1;text-align:right}
+}
+@media(max-width:520px){.filterbar{grid-template-columns:1fr}.date-box{display:none}}
+@media print{
+  .filterbar,.update-footer{display:none!important}
+  body{background:#fff}.card,.group-card{box-shadow:none}
+  main{max-width:none}.detail-wrap{max-height:none;overflow:visible}
+}
+</style>
+</head>
+<body>
+<header>
+ <div class="header-inner">
+  <div class="brand">
+<div class="title">
+    <h1>แผนงานควบคุมมาตรฐานข้อมูลเพื่อจัดทำบัญชีราคาประเมินทรัพย์สิน</h1>
+    <p>รายงานสรุปผลมาตรฐานข้อมูลและการนำข้อมูลราคาตลาดมาใช้กำหนดราคาประเมินที่ดินรายหน่วยที่ดิน</p>
+   </div>
+  </div>
+  <div class="date-box">
+   <small>ข้อมูล ณ</small>
+   <b id="headerDate">—</b>
+   <span id="headerTime">—</span>
+  </div>
+ </div>
+</header>
+
+<main>
+ <section class="filterbar">
+  <div class="field"><label>จังหวัด</label><select id="provinceFilter"><option value="ALL">ทั้งหมด</option></select></div>
+  <div class="field"><label>ภูมิภาค</label><select id="regionFilter"><option value="ALL">ทั้งหมด</option></select></div>
+  <div class="field"><label>สถานะ</label><select id="statusFilter"><option value="ALL">ทั้งหมด</option><option value="green">สูง</option><option value="amber">ปานกลาง</option><option value="red">ต่ำ</option></select></div>
+  <div class="field"><label>ค้นหา</label><input id="searchInput" placeholder="ค้นหาจังหวัด / ภูมิภาค / สถานะ..."></div>
+  <button onclick="resetFilters()">ล้างตัวกรอง</button>
+  <button onclick="loadLiveData()">รีเฟรชข้อมูล</button>
+  <button onclick="window.print()">พิมพ์ / PDF</button>
+ </section>
+
+ <section class="kpi-groups">
+  <div class="group-card">
+   <h3>การจัดทำหน่วยที่ดิน</h3>
+   <div class="kpis land-unit-kpis">
+    <div class="kpi">
+     <div class="kpi-label">จำนวนหน่วยที่ดินทั้งหมด</div>
+     <div class="kpi-value" id="kpiTotalUnits">—</div>
+     <div class="kpi-meta">หน่วยที่ดินตามข้อมูลรายงาน</div>
+    </div>
+    <div class="kpi cyan">
+     <div class="kpi-label">จำนวนหน่วยที่ดินที่นำไปจัดกลุ่มราคาตลาด</div>
+     <div class="kpi-value" id="kpiGroupedUnits">—</div>
+     <div class="kpi-meta">หน่วยที่ดินที่ดำเนินการจัดกลุ่มราคาตลาดแล้ว</div>
+    </div>
+    <div class="kpi orange">
+     <div class="kpi-label">ร้อยละของหน่วยที่ดินที่นำไปจัดกลุ่มราคาตลาด</div>
+     <div class="kpi-value" id="kpiMarket">—</div>
+     <div class="kpi-meta" id="kpiMarketMeta"></div>
+    </div>
+    <div class="kpi">
+     <div class="kpi-label">จำนวนข้อมูลที่ไม่เป็นไปตามมาตรฐาน</div>
+     <div class="kpi-value" id="kpiNonStandard">—</div>
+     <div class="kpi-meta">ข้อมูลเป้าหมายที่ต้องปรับปรุงแก้ไข</div>
+    </div>
+    <div class="kpi green">
+     <div class="kpi-label">จำนวนข้อมูลที่ปรับปรุงแก้ไขในระบบประเมินราคาทรัพย์สิน</div>
+     <div class="kpi-value" id="kpiFixedCount">—</div>
+     <div class="kpi-meta">จำนวนข้อมูลที่ดำเนินการแก้ไขแล้ว</div>
+    </div>
+    <div class="kpi green">
+     <div class="kpi-label">ร้อยละการปรับปรุงแก้ไขข้อมูล</div>
+     <div class="kpi-value" id="kpiFixedPct">—</div>
+     <div class="kpi-meta" id="kpiFixedPctMeta"></div>
+    </div>
+   </div>
+  </div>
+  <div class="group-card">
+   <h3>การประเมินราคาที่ดินรายแปลง</h3>
+   <div class="kpis">
+    <div class="kpi"><div class="kpi-label">จำนวนแปลงทั้งหมด</div><div class="kpi-value" id="kpiTotalParcels">—</div><div class="kpi-meta">ฐานข้อมูลแปลงที่ดินตามรายงาน</div></div>
+    <div class="kpi cyan"><div class="kpi-label">คำนวณราคาประเมินแล้ว</div><div class="kpi-value" id="kpiCalcParcels">—</div><div class="kpi-meta">จำนวนแปลงที่ดำเนินการแล้ว</div></div>
+    <div class="kpi"><div class="kpi-label">ความก้าวหน้ารายแปลง</div><div class="kpi-value" id="kpiParcelPct">—</div><div class="kpi-meta" id="kpiParcelMeta"></div></div>
+   </div>
+  </div>
+ </section>
+
+ <section class="dashboard-grid">
+  <div class="card">
+   <div class="map-head-row">
+    <div class="map-title-wrap">
+     <h3>แผนที่สถานะการดำเนินงานรายจังหวัด</h3>
+     <div class="card-sub" style="margin:0">คลิกจังหวัดบนแผนที่เพื่อดูผลการประเมินรายจังหวัด</div>
+    </div>
+    <div class="status-inline" aria-label="สถานะจังหวัด">
+     <div class="status-chip"><span class="dot" style="background:var(--green)"></span><span>สูง</span><strong style="color:var(--green)" id="statusGreen">—</strong></div>
+     <div class="status-chip"><span class="dot" style="background:var(--amber)"></span><span>ปานกลาง</span><strong style="color:var(--amber)" id="statusAmber">—</strong></div>
+     <div class="status-chip"><span class="dot" style="background:var(--red)"></span><span>ต่ำ</span><strong style="color:var(--red)" id="statusRed">—</strong></div>
+    </div>
+   </div>
+   <div class="map-layout">
+    <div class="map-box">
+     <div id="thaiMap" aria-label="แผนที่ประเทศไทย OpenStreetMap"></div>
+     <div class="map-loading" id="mapLoading">กำลังโหลด OpenStreetMap...</div>
+    </div>
+    <div class="eval-panel">
+     <div class="eval-selected">
+      <small>จังหวัดที่เลือก</small>
+      <b id="evalProvince">กรุณาเลือกจังหวัด</b>
+     </div>
+     <div class="eval-card">
+      <div class="eval-label">ผลการประเมินรอบ 5 เดือน</div>
+      <div class="eval-value" id="eval5Value">—</div>
+      <div class="eval-bar"><div class="eval-fill" id="eval5Bar" style="width:0%"></div></div>
+      <div class="eval-note">ผลการประเมินมาตรฐานข้อมูลด้านการประเมินราคาทรัพย์สิน</div>
+     </div>
+     <div class="eval-card">
+      <div class="eval-label">ผลการประเมินรอบ 11 เดือน</div>
+      <div class="eval-value" id="eval11Value">—</div>
+      <div class="eval-bar"><div class="eval-fill" id="eval11Bar" style="width:0%"></div></div>
+      <div class="eval-note">ผลการประเมินการจัดทำกลุ่มราคาตลาดร้อยละ 5 ของหน่วยที่ดินทั้งหมด</div>
+     </div>
+     <div class="eval-empty" id="evalHint">เลือกจังหวัดจากตัวกรองด้านบน หรือคลิกจังหวัดบนแผนที่</div>
+    </div>
+   </div>
+  </div>
+
+  <div>
+   <div class="card progress-card">
+    <h3>สถานะการคำนวณราคาประเมินรายแปลง</h3>
+    <div class="progress-layout">
+     <div class="progress-donut" id="progressDonut">
+      <div class="progress-donut-center">
+       <b id="donutPct">—</b>
+       <span>คำนวณราคาประเมินแล้ว</span>
+      </div>
+     </div>
+     <div class="progress-legend">
+      <div class="progress-row"><span>คำนวณแล้ว</span><div class="progress-track"><div class="progress-fill" id="doneBar" style="background:var(--green)"></div></div><span class="count" id="doneCount">—</span></div>
+      <div class="progress-row"><span>คงเหลือ</span><div class="progress-track"><div class="progress-fill" id="remainBar" style="background:var(--red)"></div></div><span class="count" id="remainCount">—</span></div>
+      <div class="progress-foot"><span>รวมทั้งหมด</span><span id="progressTotal">—</span></div>
+     </div>
+    </div>
+   </div>
+
+   <div class="card">
+    <h3>พื้นที่ที่ควรติดตามใกล้ชิด</h3>
+    <div class="card-sub">จังหวัดที่มีสถานะต่ำและปานกลาง เรียงจากความก้าวหน้าต่ำสุด</div>
+    <div class="urgent-table">
+     <table>
+      <thead><tr><th>อันดับ</th><th>จังหวัด</th><th>ความก้าวหน้า (%)</th><th>สถานะ</th></tr></thead>
+      <tbody id="urgentBody"></tbody>
+     </table>
+    </div>
+   </div>
+  </div>
+ </section>
+
+ <section class="card detail-card">
+  <div class="detail-toolbar">
+   <div>
+    <h3>รายละเอียดข้อมูลรายจังหวัด</h3>
+    <div class="card-sub" id="detailCount">—</div>
+   </div>
+   <div class="card-sub" style="margin:0">เลื่อนลงเพื่อดูข้อมูลทุกจังหวัด</div>
+  </div>
+  <div class="detail-wrap">
+   <table>
+    <thead>
+     <tr>
+      <th>ลำดับ</th><th>จังหวัด</th><th>ภูมิภาค</th>
+      <th>ข้อมูลที่ไม่เป็นไปตามมาตรฐาน</th>
+      <th>ปรับปรุงแก้ไขแล้ว</th>
+      <th>ร้อยละการปรับปรุงแก้ไข</th>
+      <th>จำนวนหน่วยที่ดินทั้งหมด</th>
+      <th>หน่วยที่ดินที่นำไปจัดกลุ่มราคาตลาด</th>
+      <th>ร้อยละจัดกลุ่มราคาตลาด</th>
+      <th>จำนวนแปลงทั้งหมด</th><th>คำนวณราคาประเมินแล้ว</th><th>ความก้าวหน้ารายแปลง (%)</th><th>สถานะ</th>
+     </tr>
+    </thead>
+    <tbody id="detailBody"></tbody>
+   </table>
+  </div>
+</section>
+</main>
+
+<div class="update-footer" id="updateFooter"><span class="live-dot"></span><span id="updateText">ข้อมูลอัปเดต • กำลังเชื่อมต่อ Google Sheets...</span></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const SHEET_ID='1AkYFYeTVGFnokzTXvl14WA4nDqWZSb-MxsW_eyHnALE';
+const SHEET_GID='0';
+const MAP_URL='https://raw.githubusercontent.com/knottx/opengisdata-thailand/refs/heads/master/provinces.geojson';
+const REFRESH_MS=60000;
+
+let DATA=[];
+let SUMMARY={};
+let liveScript=null;
+
+const REGION_MAP={
+'กรุงเทพมหานคร':'ปานกลาง','กาญจนบุรี':'ตะวันตก','ราชบุรี':'ตะวันตก','เพชรบุรี':'ตะวันตก','ประจวบคีรีขันธ์':'ตะวันตก','ตาก':'ตะวันตก',
+'เชียงใหม่':'เหนือ','เชียงราย':'เหนือ','ลำปาง':'เหนือ','ลำพูน':'เหนือ','แม่ฮ่องสอน':'เหนือ','น่าน':'เหนือ','พะเยา':'เหนือ','แพร่':'เหนือ','อุตรดิตถ์':'เหนือ',
+'สุโขทัย':'เหนือ','พิษณุโลก':'เหนือ','พิจิตร':'เหนือ','เพชรบูรณ์':'เหนือ','กำแพงเพชร':'เหนือ','นครสวรรค์':'เหนือ','อุทัยธานี':'เหนือ',
+'ขอนแก่น':'ตะวันออกเฉียงเหนือ','อุดรธานี':'ตะวันออกเฉียงเหนือ','เลย':'ตะวันออกเฉียงเหนือ','หนองคาย':'ตะวันออกเฉียงเหนือ','หนองบัวลำภู':'ตะวันออกเฉียงเหนือ',
+'บึงกาฬ':'ตะวันออกเฉียงเหนือ','สกลนคร':'ตะวันออกเฉียงเหนือ','นครพนม':'ตะวันออกเฉียงเหนือ','มุกดาหาร':'ตะวันออกเฉียงเหนือ',
+'กาฬสินธุ์':'ตะวันออกเฉียงเหนือ','มหาสารคาม':'ตะวันออกเฉียงเหนือ','ร้อยเอ็ด':'ตะวันออกเฉียงเหนือ','ยโสธร':'ตะวันออกเฉียงเหนือ','อำนาจเจริญ':'ตะวันออกเฉียงเหนือ',
+'อุบลราชธานี':'ตะวันออกเฉียงเหนือ','ศรีสะเกษ':'ตะวันออกเฉียงเหนือ','สุรินทร์':'ตะวันออกเฉียงเหนือ','บุรีรัมย์':'ตะวันออกเฉียงเหนือ','นครราชสีมา':'ตะวันออกเฉียงเหนือ','ชัยภูมิ':'ตะวันออกเฉียงเหนือ',
+'ชลบุรี':'ตะวันออก','ระยอง':'ตะวันออก','จันทบุรี':'ตะวันออก','ตราด':'ตะวันออก','ฉะเชิงเทรา':'ตะวันออก','ปราจีนบุรี':'ตะวันออก','สระแก้ว':'ตะวันออก',
+'นครนายก':'ปานกลาง','พระนครศรีอยุธยา':'ปานกลาง','อ่างทอง':'ปานกลาง','ลพบุรี':'ปานกลาง','สระบุรี':'ปานกลาง','ชัยนาท':'ปานกลาง','สิงห์บุรี':'ปานกลาง','สุพรรณบุรี':'ปานกลาง',
+'นครปฐม':'ปานกลาง','นนทบุรี':'ปานกลาง','ปทุมธานี':'ปานกลาง','สมุทรปราการ':'ปานกลาง','สมุทรสาคร':'ปานกลาง','สมุทรสงคราม':'ปานกลาง',
+'ชุมพร':'ใต้','ระนอง':'ใต้','สุราษฎร์ธานี':'ใต้','พังงา':'ใต้','ภูเก็ต':'ใต้','กระบี่':'ใต้','นครศรีธรรมราช':'ใต้','ตรัง':'ใต้',
+'พัทลุง':'ใต้','สงขลา':'ใต้','สตูล':'ใต้','ปัตตานี':'ใต้','ยะลา':'ใต้','นราธิวาส':'ใต้'
+};
+
+const fmt=n=>new Intl.NumberFormat('th-TH').format(Math.round(Number(n)||0));
+const pct=n=>(Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const clamp=n=>Math.max(0,Math.min(100,Number(n)||0));
+function num(v){
+ if(v===null||v===undefined||v==='')return 0;
+ if(typeof v==='number')return v;
+ const n=Number(String(v).replace(/,/g,'').replace(/%/g,'').trim());
+ return Number.isFinite(n)?n:0;
+}
+function cellVal(c){if(!c)return ''; return c.v ?? c.f ?? '';}
+function statusClass(v){return v>=95?'green':(v>=80?'amber':'red')}
+function statusText(v){return v>=95?'สูง':(v>=80?'ปานกลาง':'ต่ำ')}
+function statusColor(v){return v>=95?'#1aa35f':(v>=80?'#f4b515':'#eb4343')}
+function normalizeProvinceName(n){
+ const aliases={'กรุงเทพฯ':'กรุงเทพมหานคร','กรุงเทพ':'กรุงเทพมหานคร'};
+ return aliases[n]||n;
+}
+function buildSummary(arr){
+ const s={
+  target:arr.reduce((a,x)=>a+x.target,0),checked:arr.reduce((a,x)=>a+x.checked,0),fixed:arr.reduce((a,x)=>a+x.fixed,0),
+  totalUnits:arr.reduce((a,x)=>a+x.totalUnits,0),groupedUnits:arr.reduce((a,x)=>a+x.groupedUnits,0),
+  totalParcels:arr.reduce((a,x)=>a+x.totalParcels,0),calcParcels:arr.reduce((a,x)=>a+x.calcParcels,0)
+ };
+ s.checkedPct=s.target?s.checked/s.target*100:0;
+ s.fixedPct=s.target?s.fixed/s.target*100:0;
+ s.marketPct=s.totalUnits?s.groupedUnits/s.totalUnits*100:0;
+ s.parcelPct=s.totalParcels?s.calcParcels/s.totalParcels*100:0;
+ return s;
+}
+function parseSheet(resp){
+ if(!resp?.table?.rows)throw new Error('ไม่พบข้อมูลจาก Google Sheets');
+ const raw=resp.table.rows.map(r=>(r.c||[]).map(cellVal));
+ const out=[];
+ raw.forEach(r=>{
+  const no=num(r[0]); const province=String(r[1]||'').trim();
+  if(!no||!province)return;
+  const target=num(r[2]),checked=num(r[3]),fixed=num(r[5]),totalUnits=num(r[8]),groupedUnits=num(r[9]);
+  const totalParcels=num(r[12]),calcParcels=num(r[13]);
+  out.push({
+   no:Math.round(no),province,region:REGION_MAP[province]||'อื่นๆ',target,checked,
+   checkedPct:target?checked/target*100:0,fixed,fixedPct:target?fixed/target*100:0,
+   eval5Pct:num(r[7])>1?num(r[7]):num(r[7])*100,
+   totalUnits,groupedUnits,marketPct:totalUnits?groupedUnits/totalUnits*100:0,
+   eval11Pct:num(r[11])>1?num(r[11]):num(r[11])*100,
+   totalParcels,calcParcels,parcelPct:totalParcels?calcParcels/totalParcels*100:0
+  });
+ });
+ if(out.length<70)throw new Error('ข้อมูลจังหวัดไม่ครบ กรุณาตรวจสอบสิทธิ์การแชร์ Google Sheets');
+ return out;
+}
+function setUpdate(type,text){
+ const el=document.getElementById('updateFooter');
+ el.className='update-footer '+(type||'');
+ document.getElementById('updateText').textContent=text;
+}
+function populateFilters(){
+ const pf=document.getElementById('provinceFilter'), rf=document.getElementById('regionFilter');
+ const pv=pf.value,rv=rf.value;
+ pf.innerHTML='<option value="ALL">ทั้งหมด</option>';
+ [...DATA].sort((a,b)=>a.province.localeCompare(b.province,'th')).forEach(d=>{
+  const o=document.createElement('option');o.value=d.province;o.textContent=d.province;pf.appendChild(o);
+ });
+ rf.innerHTML='<option value="ALL">ทั้งหมด</option>';
+ [...new Set(DATA.map(d=>d.region))].sort().forEach(r=>{
+  const o=document.createElement('option');o.value=r;o.textContent=r;rf.appendChild(o);
+ });
+ if([...pf.options].some(o=>o.value===pv))pf.value=pv;
+ if([...rf.options].some(o=>o.value===rv))rf.value=rv;
+}
+function filteredData(){
+ const p=document.getElementById('provinceFilter').value;
+ const r=document.getElementById('regionFilter').value;
+ const s=document.getElementById('statusFilter').value;
+ const q=document.getElementById('searchInput').value.trim().toLowerCase();
+ return DATA.filter(d=>{
+  const st=statusClass(d.parcelPct), text=(d.province+' '+d.region+' '+statusText(d.parcelPct)).toLowerCase();
+  return (p==='ALL'||d.province===p)&&(r==='ALL'||d.region===r)&&(s==='ALL'||st===s)&&(!q||text.includes(q));
+ });
+}
+function renderKpis(arr){
+ const s=buildSummary(arr.length?arr:DATA);
+
+ document.getElementById('kpiTotalUnits').textContent=fmt(s.totalUnits);
+ document.getElementById('kpiGroupedUnits').textContent=fmt(s.groupedUnits);
+
+ document.getElementById('kpiMarket').textContent=pct(s.marketPct);
+ document.getElementById('kpiMarketMeta').textContent=`${fmt(s.groupedUnits)} / ${fmt(s.totalUnits)} หน่วย • เป้าหมาย 5%`;
+
+ document.getElementById('kpiNonStandard').textContent=fmt(s.target);
+
+ document.getElementById('kpiFixedCount').textContent=fmt(s.fixed);
+
+ document.getElementById('kpiFixedPct').textContent=pct(s.fixedPct);
+ document.getElementById('kpiFixedPctMeta').textContent=`${fmt(s.fixed)} / ${fmt(s.target)} รายการ`;
+
+ document.getElementById('kpiTotalParcels').textContent=fmt(s.totalParcels);
+ document.getElementById('kpiCalcParcels').textContent=fmt(s.calcParcels);
+ document.getElementById('kpiParcelPct').textContent=pct(s.parcelPct);
+ document.getElementById('kpiParcelMeta').textContent=`${fmt(s.calcParcels)} / ${fmt(s.totalParcels)} แปลง`;
+}
+function renderStatus(arr){
+ document.getElementById('statusGreen').textContent=arr.filter(d=>d.parcelPct>=95).length;
+ document.getElementById('statusAmber').textContent=arr.filter(d=>d.parcelPct>=80&&d.parcelPct<95).length;
+ document.getElementById('statusRed').textContent=arr.filter(d=>d.parcelPct<80).length;
+}
+function renderEvaluationPanel(){
+ const selected=document.getElementById('provinceFilter').value;
+ const provinceEl=document.getElementById('evalProvince');
+ const hint=document.getElementById('evalHint');
+ const v5=document.getElementById('eval5Value'),v11=document.getElementById('eval11Value');
+ const b5=document.getElementById('eval5Bar'),b11=document.getElementById('eval11Bar');
+
+ if(selected==='ALL'){
+  provinceEl.textContent='กรุณาเลือกจังหวัด';
+  v5.textContent='—';v11.textContent='—';
+  b5.style.width='0%';b11.style.width='0%';
+  hint.style.display='block';
+  return;
+ }
+ const d=DATA.find(x=>x.province===selected);
+ if(!d)return;
+ provinceEl.textContent=d.province;
+ v5.textContent=pct(d.eval5Pct);
+ v11.textContent=pct(d.eval11Pct);
+ b5.style.width=clamp(d.eval5Pct)+'%';
+ b11.style.width=clamp(d.eval11Pct)+'%';
+ hint.style.display='none';
+}
+
+function renderProgress(arr){
+ const s=buildSummary(arr.length?arr:DATA);
+ const done=Math.min(s.calcParcels,s.totalParcels), remain=Math.max(0,s.totalParcels-done);
+ const donePct=s.totalParcels?done/s.totalParcels*100:0, remainPct=100-donePct;
+ document.getElementById('doneBar').style.width=clamp(donePct)+'%';
+ document.getElementById('progressDonut').style.setProperty('--done',(clamp(donePct)*3.6)+'deg');
+ document.getElementById('donutPct').textContent=pct(donePct);
+ document.getElementById('remainBar').style.width=clamp(remainPct)+'%';
+ document.getElementById('doneCount').textContent=`${fmt(done)} แปลง (${pct(donePct)})`;
+ document.getElementById('remainCount').textContent=`${fmt(remain)} แปลง (${pct(remainPct)})`;
+ document.getElementById('progressTotal').textContent=`${fmt(s.totalParcels)} แปลง`;
+}
+function renderUrgent(arr){
+ const tbody=document.getElementById('urgentBody');tbody.innerHTML='';
+ const watch=[...arr].filter(d=>d.parcelPct<95).sort((a,b)=>a.parcelPct-b.parcelPct);
+ if(!watch.length){
+  tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#75869b">ไม่มีจังหวัดสถานะต่ำหรือปานกลาง</td></tr>';
+  return;
+ }
+ watch.slice(0,12).forEach((d,i)=>{
+  const cls=statusClass(d.parcelPct);
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td>${i+1}</td><td class="left">${d.province}</td><td>${pct(d.parcelPct)}</td><td><span class="pill ${cls}"><span class="dot" style="background:${statusColor(d.parcelPct)};width:8px;height:8px"></span>${statusText(d.parcelPct)}</span></td>`;
+  tbody.appendChild(tr);
+ });
+}
+function renderDetail(arr){
+ const tbody=document.getElementById('detailBody');tbody.innerHTML='';
+ arr.forEach((d,i)=>{
+  const tr=document.createElement('tr'), cls=statusClass(d.parcelPct);
+  tr.innerHTML=`<td>${i+1}</td><td class="left">${d.province}</td><td class="left">${d.region}</td><td>${fmt(d.target)}</td><td>${fmt(d.fixed)}</td><td>${pct(d.fixedPct)}</td><td>${fmt(d.totalUnits)}</td><td>${fmt(d.groupedUnits)}</td><td>${pct(d.marketPct)}</td><td>${fmt(d.totalParcels)}</td><td>${fmt(d.calcParcels)}</td><td>${pct(d.parcelPct)}</td><td><span class="pill ${cls}">${statusText(d.parcelPct)}</span></td>`;
+  tbody.appendChild(tr);
+ });
+ document.getElementById('detailCount').textContent=`ข้อมูลทั้งหมด ${arr.length} จังหวัด`;
+}
+function resetFilters(){
+ document.getElementById('provinceFilter').value='ALL';
+ document.getElementById('regionFilter').value='ALL';
+ document.getElementById('statusFilter').value='ALL';
+ document.getElementById('searchInput').value='';renderAll();
+}
+function renderAll(){
+ const arr=filteredData();
+ renderKpis(arr);renderStatus(arr);renderEvaluationPanel();renderProgress(arr);renderUrgent(arr);renderDetail(arr);refreshMapColors(arr);
+}
+['provinceFilter','regionFilter','statusFilter'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{renderAll()}));
+document.getElementById('searchInput').addEventListener('input',()=>{renderAll()});
+
+function loadLiveData(){
+ setUpdate('','ข้อมูลอัปเดต • กำลังเชื่อมต่อ Google Sheets...');
+ if(liveScript)liveScript.remove();
+ liveScript=document.createElement('script');
+ liveScript.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${SHEET_GID}&tqx=responseHandler:handleSheet&_=${Date.now()}`;
+ liveScript.onerror=()=>setUpdate('error','ข้อมูลอัปเดต • เชื่อมต่อ Google Sheets ไม่สำเร็จ');
+ document.head.appendChild(liveScript);
+}
+function handleSheet(resp){
+ try{
+  DATA=parseSheet(resp);SUMMARY=buildSummary(DATA);populateFilters();renderAll();
+  const now=new Date(), date=now.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
+  const time=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('headerDate').textContent=date;
+  document.getElementById('headerTime').textContent=time;
+  setUpdate('ok',`ข้อมูลอัปเดต • ${now.toLocaleString('th-TH')}`);
+ }catch(e){console.error(e);setUpdate('error','ข้อมูลอัปเดต • '+e.message);}
+}
+let leafletMap=null;
+let provinceGeoLayer=null;
+let provinceLayerByName=new Map();
+
+async function initMap(){
+ const loading=document.getElementById('mapLoading');
+ try{
+  if(typeof L==='undefined') throw new Error('Leaflet ไม่พร้อมใช้งาน');
+
+  leafletMap=L.map('thaiMap',{
+   zoomControl:true,
+   scrollWheelZoom:true,
+   attributionControl:true
+  }).setView([13.2,101.0],5.3);
+
+  L.tileLayer(
+   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+   {
+    maxZoom:19,
+    attribution:'&copy; OpenStreetMap contributors'
+   }
+  ).addTo(leafletMap);
+
+  const res=await fetch(MAP_URL);
+  if(!res.ok) throw new Error('โหลดขอบเขตจังหวัดไม่สำเร็จ');
+  const geo=await res.json();
+
+  provinceGeoLayer=L.geoJSON(geo,{
+   style:feature=>{
+    const name=normalizeProvinceName(feature.properties.pro_th);
+    const d=DATA.find(x=>x.province===name);
+    return{
+     color:'#ffffff',
+     weight:1,
+     opacity:.95,
+     fillColor:d?statusColor(d.parcelPct):'#cbd5e1',
+     fillOpacity:d?.parcelPct>=95?.28:.38
+    };
+   },
+   onEachFeature:(feature,layer)=>{
+    const name=normalizeProvinceName(feature.properties.pro_th);
+    provinceLayerByName.set(name,layer);
+
+    layer.on('click',()=>{
+     if(DATA.some(x=>x.province===name)){
+      document.getElementById('provinceFilter').value=name;
+      renderAll();
+      try{leafletMap.fitBounds(layer.getBounds(),{padding:[20,20],maxZoom:9})}catch(_){}
+     }
+    });
+
+    layer.bindTooltip(()=>{
+     const d=DATA.find(x=>x.province===name);
+     if(!d) return `<b>${name}</b><br>ไม่พบข้อมูล`;
+     return `<b>${d.province}</b><br>${d.region}<br>ความก้าวหน้า ${pct(d.parcelPct)}<br>คำนวณแล้ว ${fmt(d.calcParcels)} / ${fmt(d.totalParcels)} แปลง<br>สถานะ: ${statusText(d.parcelPct)}`;
+    },{sticky:true,direction:'top'});
+   }
+  }).addTo(leafletMap);
+
+  const bounds=provinceGeoLayer.getBounds();
+  if(bounds.isValid()) leafletMap.fitBounds(bounds,{padding:[12,12]});
+
+  loading.style.display='none';
+  setTimeout(()=>leafletMap.invalidateSize(),100);
+  refreshMapColors(filteredData());
+ }catch(e){
+  console.error(e);
+  loading.innerHTML='ไม่สามารถโหลด OpenStreetMap ได้ในขณะนี้<br><small>กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</small>';
+ }
+}
+
+function refreshMapColors(arr){
+ if(!provinceGeoLayer)return;
+ const visible=new Set(arr.map(d=>d.province));
+ provinceLayerByName.forEach((layer,name)=>{
+  const d=DATA.find(x=>x.province===name);
+  if(!d){
+   layer.setStyle({fillColor:'#cbd5e1',fillOpacity:.18});
+   return;
+  }
+  const shown=visible.has(name);
+  layer.setStyle({
+   fillColor:shown?statusColor(d.parcelPct):'#cbd5e1',
+   fillOpacity:shown?(d.parcelPct>=95?.26:.36):.10,
+   color:shown?'#ffffff':'#d6dee7',
+   weight:shown?1:.6
+  });
+ });
+}
+
+initMap();
+loadLiveData();
+setInterval(loadLiveData,REFRESH_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadLiveData()});
+</script>
+</body>
+</html>
